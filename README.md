@@ -82,3 +82,13 @@ This notebook builds on insights from the EDA and focuses on **predictive modeli
   - R² score
   - RMSE
 - Feature importance analysis
+
+
+### Model performance
+
+After fixing data issues and engineering features:
+
+- **R² score:** ~0.77  
+- **RMSE:** ~311 seconds  
+
+This represents a strong baseline for a noisy, real-world regression problem.
