@@ -1,94 +1,77 @@
-# NYC Taxi Trip Duration — Analysis and Prediction
+# NYC Taxi Trip Duration: Analysis and Prediction
 
-An end-to-end data science and machine learning project using the NYC taxi trip duration dataset.  
-This repository combines **exploratory data analysis, geospatial visualization, and supervised machine learning** to understand and predict taxi trip duration in New York City.
+**How long will a New York taxi ride take? Geospatial EDA on 730k trips, then a LightGBM model that explains 77% of the variance in trip duration from where, when and how far.**
 
-The project is intentionally structured as **two focused notebooks** that represent distinct stages of a real-world ML workflow.
+[![EDA in Colab](https://img.shields.io/badge/Open%20EDA-Colab-F9AB00?logo=googlecolab&logoColor=white)](https://colab.research.google.com/github/dojedaro/nyc-taxi-trip-duration-analysis-and-prediction/blob/main/01_eda_geospatial_analysis.ipynb)
+[![Model in Colab](https://img.shields.io/badge/Open%20model-Colab-F9AB00?logo=googlecolab&logoColor=white)](https://colab.research.google.com/github/dojedaro/nyc-taxi-trip-duration-analysis-and-prediction/blob/main/02_trip_duration_prediction.ipynb)
+[![Notebook checks](https://github.com/dojedaro/nyc-taxi-trip-duration-analysis-and-prediction/actions/workflows/notebooks.yml/badge.svg)](https://github.com/dojedaro/nyc-taxi-trip-duration-analysis-and-prediction/actions/workflows/notebooks.yml)
 
----
+## Results
 
-## Project overview
+| | Value |
+|---|---|
+| Model | LightGBM regressor, 50 trees, learning rate 0.1 |
+| Split | 80/20 random, seed 42 |
+| R² on the test split | **0.768** |
+| RMSE on the test split | **311 s** (about 5 minutes) |
+| Rows removed as outliers | 9,071 (1.24%) |
 
-This repository answers two key questions:
+Most-used features (LightGBM split counts): **pickup hour** (419), **haversine distance** (198),
+Manhattan distance (17), rush-hour flag (12). Time of day matters as much as distance: the same
+3 km takes very different times at 8 a.m. and 3 a.m.
 
-1. **How do NYC taxi trips behave spatially and temporally?**
-2. **Can we accurately predict trip duration using location and time-based features?**
+**Caveats:** outliers (impossible speeds, zero distances, trips outside NYC) were removed from the
+whole dataset before splitting, so the test set is cleaned too and the RMSE is somewhat optimistic
+for raw production traffic. The model is deliberately small (50 trees, no tuning), so this is a
+baseline rather than a ceiling.
 
-Both notebooks use the same dataset but serve **different purposes**, reflecting a practical end-to-end pipeline:  
-**understand the data first, then build a predictive model.**
+### A data bug worth noting
 
----
+The prediction notebook checks its inputs before trusting them. On this copy of the dataset the
+`distance` column was missing, so it recomputes distance with the haversine formula, and it also
+recomputes duration from the timestamps, replacing columns that disagree. Validating inputs
+explicitly like this is what catches silent data problems in production pipelines.
 
-## Notebook 1 — Exploratory Data Analysis & Geospatial Insights
+## How it works
 
-**File:** `01_eda_geospatial_analysis.ipynb`
+```mermaid
+flowchart LR
+    D[NYC taxi trips CSV] --> E[01 EDA: distributions,<br/>hourly and weekly patterns,<br/>Folium heatmaps, DBSCAN hotspots]
+    D --> V[02 Validate: recompute<br/>duration and distance]
+    V --> C[Remove outliers:<br/>duration, distance, speed,<br/>NYC bounding box]
+    C --> F[Features: haversine and<br/>Manhattan distance, hour,<br/>weekday, weekend, rush hour,<br/>coordinates]
+    F --> M[LightGBM regressor]
+    M --> R[R², RMSE,<br/>feature importance]
+```
 
-This notebook focuses on **understanding and validating the data** before modeling.
+- **`01_eda_geospatial_analysis.ipynb`:** distributions of duration, distance and speed; trip volume
+  and duration by hour and weekday; pickup and dropoff heatmaps with Folium; pickup hotspots
+  clustered with DBSCAN; interactive Plotly views.
+- **`02_trip_duration_prediction.ipynb`:** input validation, outlier filtering, feature engineering
+  and the LightGBM model.
 
-### What it covers
+## Run it
 
-- Dataset inspection and data-type validation
-- Datetime parsing and feature extraction
-- Distance and speed computation
-- Outlier filtering and data cleaning
-- Distribution analysis:
-  - Trip duration
-  - Distance
-  - Speed
-- Temporal patterns:
-  - Average trip duration by hour
-  - Trip volume by hour
-  - Average duration by day of week
-- Passenger count analysis
-- Spatial visualization:
-  - Pickup and dropoff heatmaps (Folium)
-  - Pickup hotspot clustering using DBSCAN
-- Interactive exploration using Plotly
+Download the NYC taxi trip duration dataset (the Kaggle competition data) and save it as
+`nyc_taxi_trip_duration.csv` next to the notebooks.
 
-### Goal
+```bash
+pip install -r requirements.txt
+jupyter notebook 01_eda_geospatial_analysis.ipynb
+```
 
-Identify mobility patterns, validate data quality, and uncover spatial and temporal dynamics that inform downstream feature engineering.
+## Stack
 
----
+Python, pandas, NumPy, LightGBM, scikit-learn, Folium, Plotly, seaborn, Matplotlib.
 
-## Notebook 2 — Trip Duration Prediction (Machine Learning)
+## Limitations and next steps
 
-**File:** `02_trip_duration_prediction.ipynb`
+- Split before filtering outliers, and report the error on unfiltered test trips as well.
+- Predict `log(duration)`, the usual target for this skewed variable, and tune the model with
+  cross-validation.
+- Add weather and holiday features, and a time-based split (train on earlier months, test on later)
+  to measure how the model holds up over time.
 
-This notebook builds on insights from the EDA and focuses on **predictive modeling and data robustness**.
+## License
 
-### What it covers
-
-- Explicit data diagnostics to detect real-world issues
-- Recalculation and validation of:
-  - Trip duration (from timestamps)
-  - Distance (Haversine formula)
-- Automatic replacement of faulty columns when discrepancies are detected
-- Aggressive but controlled outlier removal based on:
-  - Duration
-  - Distance
-  - Speed
-  - NYC geographic boundaries
-- Feature engineering grounded in urban mobility behavior:
-  - Haversine distance
-  - Manhattan distance
-  - Pickup hour
-  - Day of week
-  - Weekend indicator
-  - Rush-hour indicator
-  - Pickup and dropoff coordinates
-- Supervised regression using LightGBM
-- Model evaluation:
-  - R² score
-  - RMSE
-- Feature importance analysis
-
-
-### Model performance
-
-After fixing data issues and engineering features:
-
-- **R² score:** ~0.77  
-- **RMSE:** ~311 seconds  
-
-This represents a strong baseline for a noisy, real-world regression problem.
+MIT
